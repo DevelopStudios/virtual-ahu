@@ -10,33 +10,33 @@ import time
 from zone import Zone
 from weather import outdoor_temp
 from config import Settings
+from app.sim.pid import PID
 
 def run() -> None:
     """Start the simulation loop."""
     cfg = Settings() #Grab env-configured settings
-    zone = Zone()   #Initial zone temprature 22C
+    zone = Zone()   #Initial zone temperature ~22C
+    zone.temp = 18.0   # start colder to create a PID error
+    pid = PID(kp=2.0, ki=0.5, setpoint=22.0, output_limits=(-100.0,100.0))
     start = time.time()  #Reference time = 0
-
     max_ticks = 10
     tick = 0
     while tick < max_ticks:
-        t = time.time() - start #Simulation elapsed seconds
-        oa = outdoor_temp(t) #Outdoor temperature for this tick
-
-        supply_temp = oa
-
-        #Advance the zone model
+        t = time.time() - start
+        oa = outdoor_temp(t)
+        command = pid.update(measured=zone.temp,dt=cfg.tick_rate)
+        min_sa, max_sa = 10.0,30.0
+        supply_temp = max(min_sa, min(max_sa, pid.setpoint + command))
         zone.step(supply_temp=supply_temp, dt=cfg.tick_rate)
 
-        #Print a one-line status report
         print(
             f"[t={t:6.1f}s] zone={zone.temp:5.2f}°C "
-            f"outdoor={oa:5.2f}°C supply={supply_temp:5.2f}°C"
+            f"outdoor={oa:5.2f}°C supply={supply_temp:5.2f}°C "
+            f"pid_cmd={command:5.2f}"
         )
-
-        #Respect the configured tick rate and optional speed-up factor
         time.sleep(cfg.tick_rate / cfg.speed_factor)
         tick += 1
+    
 
 if __name__ == "__main__":
     run()
