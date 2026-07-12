@@ -7,6 +7,7 @@ manual override at priority 8 genuinely changes the room, not just a
 number.  Phase 4 runs this same loop as an asyncio task under FastAPI.
 """
 
+import asyncio
 import time
 
 from app.bacnet import points
@@ -85,6 +86,11 @@ class Simulation:
                 f" fan={'ON' if reg.read_present(*points.FAN_STATUS) else 'OFF'}"
             )
             time.sleep(self.cfg.tick_rate / self.cfg.speed_factor)
+    
+    async def run_async(self)-> None:
+        while True:
+            self.tick()
+            await asyncio.sleep(self.cfg.tick_rate / self.cfg.speed_factor)
 
 
 if __name__ == "__main__":

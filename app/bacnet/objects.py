@@ -12,6 +12,18 @@ PROP_RELINQUISH_DEFAULT = 104
 PROP_OUT_OF_SERVICE = 81
 # --------------------------------------------------
 
+# Kebab-case property names (as BACnet spells them) -> property IDs.
+# The API layer uses this to resolve URL segments; a miss means 404.
+PROPERTY_NAMES: dict[str, int] = {
+    "present-value": PROP_PRESENT_VALUE,
+    "object-name": PROP_OBJECT_NAME,
+    "units": PROP_UNITS,
+    "status-flags": PROP_STATUS_FLAGS,
+    "priority-array": PROP_PRIORITY_ARRAY,
+    "relinquish-default": PROP_RELINQUISH_DEFAULT,
+    "out-of-service": PROP_OUT_OF_SERVICE,
+}
+
 # Object types that carry a priority array in real BACnet.  Inputs are
 # sensors — they are never commandable.  (Analog/binary-values *may* be
 # commandable; here they are plain writable points.)
