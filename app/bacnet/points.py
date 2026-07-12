@@ -1,47 +1,43 @@
-"""Instantiate every point defined in the specification and register them."""
+"""AHU-1 point definitions.
+
+Call :func:`register_points` to populate a :class:`Registry`.  The
+``(object-type, instance)`` address constants below are how the engine,
+tests, and later the API refer to individual points.  Instance numbers
+are per object type, as in real BACnet.
+"""
 
 from .objects import BACnetObject
 from .registry import Registry
 
-reg = Registry.instance()
+# (object-type, instance) addresses
+ZONE_TEMP = ("analog-input", 1)      # AHU1-ZN-T   zone temperature
+SUPPLY_TEMP = ("analog-input", 2)    # AHU1-SA-T   supply (discharge) air temp
+OUTDOOR_TEMP = ("analog-input", 3)   # AHU1-OA-T   outdoor air temp
+ZONE_SETPOINT = ("analog-value", 1)  # AHU1-ZN-SP  zone setpoint (writable)
+COOLING_VALVE = ("analog-output", 1) # AHU1-CLG-V  cooling valve (commandable)
+FAN_CMD = ("binary-output", 1)       # AHU1-SF-C   supply fan command (commandable)
+FAN_STATUS = ("binary-input", 1)     # AHU1-SF-S   supply fan status
+OCCUPANCY = ("binary-value", 1)      # AHU1-OCC    occupancy mode (writable)
 
-# Helper to avoid repetition -------------------------------------------------
-def _make(obj_type: str, instance: int, name: str, units: str | None = None) -> BACnetObject:
-    obj = BACnetObject(obj_type=obj_type, instance=instance, name=name, units=units)
-    reg.register(obj)
-    return obj
-# --------------------------------------------------------------------------
 
-# Analog‑Input (AI) – read‑only sensor values
-AI_ZONE_TEMP      = _make("analog-input", 1, "AHU1‑ZN‑T", units="°C")
-AI_SUPPLY_TEMP    = _make("analog-input", 2, "AHU1‑SA‑T", units="°C")
-AI_OUTDOOR_TEMP   = _make("analog-input", 3, "AHU1‑OA‑T", units="°C")
+def register_points(reg: Registry) -> None:
+    """Create every AHU-1 point and register it, with sane initial values."""
 
-# Analog‑Value (AV) – writable setpoint
-AV_ZONE_SP        = _make("analog-value", 4, "AHU1‑ZN‑SP", units="°C")
+    def make(address, name, units=None, **kwargs):
+        obj_type, instance = address
+        reg.register(BACnetObject(obj_type, instance, name, units=units, **kwargs))
 
-# Analog‑Output (AO) – commandable points (priority‑array)
-AO_COOLING_VALVE = _make("analog-output", 5, "AHU1‑CLG‑V", units="%")
-AO_FAN_CMD        = _make("analog-output", 6, "AHU1‑SF‑C", units="%")
+    # Sensors (AI/BI) — plain present-value, written by the simulation
+    make(ZONE_TEMP, "AHU1-ZN-T", units="°C", present_value=22.0)
+    make(SUPPLY_TEMP, "AHU1-SA-T", units="°C", present_value=22.0)
+    make(OUTDOOR_TEMP, "AHU1-OA-T", units="°C", present_value=15.0)
+    make(FAN_STATUS, "AHU1-SF-S", present_value=0)
 
-# Binary‑Input (BI) – read‑only status bits
-BI_FAN_STATUS    = _make("binary-input", 7, "AHU1‑SF‑S")
+    # Writable values (AV/BV) — plain present-value, written by operators
+    make(ZONE_SETPOINT, "AHU1-ZN-SP", units="°C", present_value=22.0)
+    make(OCCUPANCY, "AHU1-OCC", present_value=1)
 
-# Binary‑Value (BV) – writable binary point
-BV_OCCUPANCY      = _make("binary-value", 8, "AHU1‑OCC")
-
-# High‑zone‑temp alarm (treated as an analog‑input for simplicity)
-AI_HIGH_TEMP_ALARM = _make("analog-input", 9, "AHU1‑HIGH‑TEMP‑ALARM")
-
-# --------------------------------------------------------------------------
-# Set initial present‑values that make sense for a freshly‑started simulation.
-# You can change these defaults later if you wish.
-AI_ZONE_TEMP.properties[85]      = 22.0
-AI_SUPPLY_TEMP.properties[85]    = 22.0
-AI_OUTDOOR_TEMP.properties[85]   = 15.0
-AV_ZONE_SP.properties[85]         = 22.0
-AO_COOLING_VALVE.properties[85]  = 0.0
-AO_FAN_CMD.properties[85]        = 0.0
-BI_FAN_STATUS.properties[85]     = 0
-BV_OCCUPANCY.properties[85]    = 0
-AI_HIGH_TEMP_ALARM.properties[85] = 0
+    # Commandable outputs (AO/BO) — priority array; present-value is derived.
+    # Fan relinquish-default is 1 ("auto = run") so the AHU runs out of the box.
+    make(COOLING_VALVE, "AHU1-CLG-V", units="%", relinquish_default=0.0)
+    make(FAN_CMD, "AHU1-SF-C", relinquish_default=1)
