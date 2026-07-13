@@ -29,6 +29,10 @@ PROPERTY_NAMES: dict[str, int] = {
 # commandable; here they are plain writable points.)
 COMMANDABLE_TYPES = {"analog-output", "binary-output"}
 
+# Value objects take plain present-value writes (no priority array here);
+# inputs are sensors and reject writes entirely.
+WRITABLE_TYPES = {"analog-value", "binary-value"}
+
 
 class BACnetObject:
     """A single BACnet-style object: type + instance + properties.
