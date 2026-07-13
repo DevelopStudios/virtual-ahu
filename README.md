@@ -36,10 +36,8 @@ Base URLs:
 
 OpenAPI/Swagger UI at `/docs`, machine-readable schema at `/openapi.json`
 (covers all HTTP routes; the WebSocket is documented below only).
-CORS: the production proxy sets `Access-Control-Allow-Origin: *`. The
-local dev server does **not** send CORS headers yet — before pointing a
-browser frontend at `localhost:8000`, add FastAPI's `CORSMiddleware` in
-`create_app()` (or proxy API calls through the frontend dev server).
+CORS: the app allows any origin (`Access-Control-Allow-Origin: *`), so a
+browser frontend can call both local and production APIs directly.
 
 Objects are addressed as `{type}/{instance}` where `type` is one of
 `analog-input`, `analog-value`, `analog-output`, `binary-input`,

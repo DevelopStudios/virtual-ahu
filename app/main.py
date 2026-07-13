@@ -12,6 +12,7 @@ import contextlib
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import alarms, cov, devices, objects, trends
 from app.bacnet.registry import Registry
@@ -46,6 +47,13 @@ async def lifespan(app: FastAPI):
 
 def create_app() -> FastAPI:
     app = FastAPI(title="Virtual AHU", lifespan=lifespan)
+    # Demo API: open to any browser origin (no credentials involved)
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
     app.include_router(devices.router)
     app.include_router(objects.router)
     app.include_router(trends.router)

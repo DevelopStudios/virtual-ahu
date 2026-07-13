@@ -142,6 +142,26 @@ def test_cov_pushes_on_change(monkeypatch, tmp_path):
                 pytest.fail("no COV notification for the override")
 
 
+def test_cors_allows_browser_frontends():
+    with TestClient(create_app()) as client:
+        # simple cross-origin request (what fetch() sends)
+        resp = client.get("/devices", headers={"Origin": "http://localhost:5173"})
+        assert resp.headers.get("access-control-allow-origin") == "*"
+
+        # preflight (what the browser sends before a POST with a JSON body)
+        resp = client.options(
+            "/objects/analog-output/1/properties/present-value",
+            headers={
+                "Origin": "http://localhost:5173",
+                "Access-Control-Request-Method": "POST",
+                "Access-Control-Request-Headers": "content-type",
+            },
+        )
+        assert resp.status_code == 200
+        assert resp.headers.get("access-control-allow-origin") == "*"
+        assert "POST" in resp.headers.get("access-control-allow-methods", "")
+
+
 def test_full_app_discovery_and_live_sim():
     """End to end: lifespan starts the sim task; discovery sees the device."""
     with TestClient(create_app()) as client:
