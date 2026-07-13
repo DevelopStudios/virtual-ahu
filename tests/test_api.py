@@ -82,6 +82,66 @@ def test_priority_out_of_range_is_422(client):
     assert client.post(url, json={"value": 50.0, "priority": 17}).status_code == 422
 
 
+def _fast_env(monkeypatch, tmp_path):
+    """Run the sim fast and keep the trend DB out of the repo."""
+    monkeypatch.setenv("AHU_SPEED_FACTOR", "50")
+    monkeypatch.setenv("AHU_TREND_INTERVAL", "2")  # sim-seconds between samples
+    monkeypatch.setenv("AHU_DB_PATH", str(tmp_path / "history.db"))
+
+
+def test_trends_accumulate(monkeypatch, tmp_path):
+    _fast_env(monkeypatch, tmp_path)
+    with TestClient(create_app()) as client:
+        import time
+
+        time.sleep(0.6)
+        data = client.get("/trends/analog-input/1", params={"limit": 50}).json()
+        assert data["point"] == "AHU1-ZN-T"
+        assert len(data["samples"]) >= 2
+        assert all(5.0 < s["value"] < 40.0 for s in data["samples"])
+
+        assert client.get("/trends/analog-input/99").status_code == 404
+
+
+def test_alarm_fires_and_acks_via_api(monkeypatch, tmp_path):
+    _fast_env(monkeypatch, tmp_path)
+    monkeypatch.setenv("AHU_HIGH_TEMP_LIMIT", "20")  # zone starts at 25 -> fires
+    with TestClient(create_app()) as client:
+        import time
+
+        time.sleep(0.3)
+        alarms = client.get("/alarms").json()
+        assert len(alarms) == 1
+        assert alarms[0]["state"] == "active-unacked"
+        assert "AHU1-ZN-T" in alarms[0]["point"]
+
+        acked = client.post(f"/alarms/{alarms[0]['id']}/ack")
+        assert acked.status_code == 200
+        assert acked.json()["state"] == "active-acked"
+
+        assert client.post("/alarms/999/ack").status_code == 404
+
+
+def test_cov_pushes_on_change(monkeypatch, tmp_path):
+    _fast_env(monkeypatch, tmp_path)
+    with TestClient(create_app()) as client:
+        with client.websocket_connect("/cov") as ws:
+            ws.send_json({"subscribe": ["analog-output/1"]})
+            first = ws.receive_json()  # initial snapshot for each subscription
+            assert first["object"] == "analog-output/1"
+
+            client.post(
+                "/objects/analog-output/1/properties/present-value",
+                json={"value": 99.0, "priority": 8},
+            )
+            for _ in range(20):
+                msg = ws.receive_json()
+                if msg["value"] == 99.0:
+                    break
+            else:
+                pytest.fail("no COV notification for the override")
+
+
 def test_full_app_discovery_and_live_sim():
     """End to end: lifespan starts the sim task; discovery sees the device."""
     with TestClient(create_app()) as client:

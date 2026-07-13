@@ -39,6 +39,9 @@ coverage.xml
 *.sublime-project
 *.sublime-workspace
 
+# SQLite trend history (ephemeral runtime data)
+*.db
+
 # macOS
 .DS_Store
 
